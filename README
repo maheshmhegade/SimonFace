@@ -1,0 +1,9 @@
+Brief Description
+
+Camera selection button to select camera source.
+Check Camera to start detecting face
+Detected face is to list out detected unknown faces to be tagged.
+In case recognition system is not confident enough in recognition,these photos are also included in detected face panel and lateron will be used by recognition system to build model based on training.
+known people panel is to show recognised/tagged people.
+
+List of scinerios that are constrained can be choosen from panel provided.
