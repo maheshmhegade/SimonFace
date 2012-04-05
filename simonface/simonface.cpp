@@ -20,10 +20,10 @@ void SimonFace::SimonFaceDetection(){
     CvCapture *capture;
     IplImage  *frame;
     int       key,i;
-    char      *filename = "/home/mmh/haarcascade_frontalface_alt.xml";
+    char      *filename = "/home/mmh/kde/src/SimonFace/simonface/data/haarcascade_frontalface_alt.xml";
     cascade = ( CvHaarClassifierCascade* )cvLoad( filename, 0, 0, 0 );
     storage = cvCreateMemStorage( 0 );
-    capture = cvCaptureFromFile("/home/mmh/jok.mpg");
+    capture = cvCaptureFromFile("/home/mmh/kde/src/SimonFace/simonface/data/test.mpg");
     assert( cascade && storage && capture );
 
     while( key != 'q' ) {
@@ -34,8 +34,8 @@ void SimonFace::SimonFaceDetection(){
         CvRect *r = ( CvRect* )cvGetSeqElem( faces, i );
         cvRectangle( frame,cvPoint( r->x, r->y ),cvPoint( r->x + r->width, r->y + r->height ),CV_RGB( 0, 255, 0 ), 1, 8, 0 );
       }
-     cvCvtColor(frame,frame,CV_BGR2RGB);
-     QImage image = QImage((unsigned char *)frame->imageDataOrigin,frame->width,frame->height,QImage::Format_RGB888);
+    cvCvtColor(frame,frame,CV_BGR2RGB);
+    QImage image = QImage((unsigned char *)frame->imageDataOrigin,frame->width,frame->height,QImage::Format_RGB888);
       
     QGraphicsScene* scene = new QGraphicsScene(this);
     QPixmap tempimage=QPixmap::fromImage(image);
@@ -52,7 +52,7 @@ void SimonFace::SimonFaceDetection(){
        (ui->graphicsView_2->height() + 19))); 
     
     QGraphicsPixmapItem *sizedBackground = scene->addPixmap(
-        QPixmap::fromImage(sizedCroppedImage));
+    QPixmap::fromImage(sizedCroppedImage));
     sizedBackground->setZValue(1);
     ui->graphicsView_2->setScene(scene);
     key = cvWaitKey(10);
@@ -62,7 +62,5 @@ void SimonFace::SimonFaceDetection(){
     cvDestroyWindow( "video" );
     cvReleaseHaarClassifierCascade( &cascade );
     cvReleaseMemStorage( &storage );
-    
-    
  return;
 }
