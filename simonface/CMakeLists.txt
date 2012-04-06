@@ -24,6 +24,4 @@ kde4_add_ui_files(simonface_src simonface.ui)
 
 KDE4_ADD_EXECUTABLE(simonface ${simonface_src})
 
-TARGET_LINK_LIBRARIES(simonface ${KDE4_KDECORE_LIBS}  ${KDE4_KDEUI_LIBS} ${QT_QTGUI_LIBRARY} ${LIBFACE_LIBRARIES} ${KDE4_KDECORE_LIBS} ${QT_QTCORE_LIBRARY} 
-
-${QT_QTGUI_LIBRARY} ${opencv_libraries})
+TARGET_LINK_LIBRARIES(simonface ${KDE4_KDECORE_LIBS}  ${KDE4_KDEUI_LIBS}  ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${opencv_libraries})
