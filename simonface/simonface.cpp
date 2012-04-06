@@ -18,7 +18,7 @@ void SimonFace::SimonFaceDetection(){
     CvHaarClassifierCascade *cascade;
     CvMemStorage            *storage;
     CvCapture *capture;
-    int   i;
+    int   i,duration=0;
     char  key;
     char      *filename = "/home/mmh/kde/src/SimonFace/simonface/data/haarcascade_frontalface_alt.xml";
     cascade = ( CvHaarClassifierCascade* )cvLoad( filename, 0, 0, 0 );
@@ -26,7 +26,7 @@ void SimonFace::SimonFaceDetection(){
     capture = cvCaptureFromFile("/home/mmh/kde/src/SimonFace/simonface/data/test.mpg");
     assert( cascade && storage && capture );
 
-    while( key != 'q' ) {
+    while( duration < 20 ) {
       IplImage* frame = cvQueryFrame(capture);
       if( !frame ) break;
       CvSeq *faces = cvHaarDetectObjects(frame,cascade,storage,1.1,3,0,cvSize( 40, 40 ) );
@@ -45,7 +45,8 @@ void SimonFace::SimonFaceDetection(){
     QImage sizedImage = QImage(sized.toImage());
     QGraphicsPixmapItem *sizedBackground = scene->addPixmap(QPixmap::fromImage(sizedImage));
     ui->graphicsView_2->setScene(scene);
-    key = cvWaitKey(1);
+    key = cvWaitKey(10);
+    duration++;
     }
     cvReleaseCapture( &capture );
     cvReleaseHaarClassifierCascade( &cascade );
