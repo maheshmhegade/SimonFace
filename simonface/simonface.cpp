@@ -18,7 +18,6 @@ void SimonFace::SimonFaceDetection(){
     CvHaarClassifierCascade *cascade;
     CvMemStorage            *storage;
     CvCapture *capture;
-    IplImage  *frame;
     int       key,i;
     char      *filename = "/home/mmh/kde/src/SimonFace/simonface/data/haarcascade_frontalface_alt.xml";
     cascade = ( CvHaarClassifierCascade* )cvLoad( filename, 0, 0, 0 );
@@ -55,7 +54,7 @@ void SimonFace::SimonFaceDetection(){
     QPixmap::fromImage(sizedCroppedImage));
     sizedBackground->setZValue(1);
     ui->graphicsView_2->setScene(scene);
-    key = cvWaitKey(10);
+    key = cvWaitKey(1);
     }
     
     cvReleaseCapture( &capture );
