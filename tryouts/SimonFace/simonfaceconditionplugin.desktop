@@ -1,0 +1,26 @@
+[Desktop Entry]
+Type=Service
+Icon=text-field
+ServiceTypes=simon/ConditionPlugin
+X-KDE-Library=simonfaceconditionplugin
+Name=simon Face Condition Plugin
+Name[pt]='Plugin' face Simon
+Name[pt_BR]=Plugin face simon
+Name[sv]=Simon insticksprogram för  face
+Name[uk]=Додаток face simon
+Name[x-test]=xxsimon Face  Pluginxx
+Comment=Checks for face
+Comment[pt]=Verifica face
+Comment[pt_BR]=Verifica qual o face
+Comment[sv]=Söker face
+Comment[uk]=Перевірка face
+Comment[x-test]=xxChecks for facex
+
+X-KDE-PluginInfo-Author=Mahesh M Hegde
+X-KDE-PluginInfo-Email=maheshmhegade@gmail.com
+X-KDE-PluginInfo-Name=simonfaceconditionplugin
+X-KDE-PluginInfo-Version=0.1
+X-KDE-PluginInfo-Website=http://simon-listens.org
+X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-EnabledByDefault=true
+X-KDE-ParentApp=simon
