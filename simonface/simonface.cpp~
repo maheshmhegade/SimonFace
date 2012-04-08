@@ -52,6 +52,8 @@ void SimonFace::SimonFaceDetection(){
       
       QImage sizedImage = QImage(sized.toImage());
       
+      QGraphicsPixmapItem *sizedBackground = scene->addPixmap(QPixmap::fromImage(sizedImage));
+      
       ui->graphicsView_2->setScene(scene);
       
       cvWaitKey(1);
