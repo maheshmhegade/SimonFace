@@ -7,49 +7,72 @@ SimonFace::SimonFace(QWidget *parent) :
     ui(new Ui::SimonFace)
 {
     ui->setupUi(this);
+    
     connect(ui->pbCameraCalibration, SIGNAL(clicked()), this, SLOT(SimonFaceDetection()));
+    
+    connect(ui->BrightnessAdjust, SIGNAL(valueChanged(int)),this, SLOT(updateBrightness()));
+
+    connect(ui->pbCancelButton, SIGNAL(clicked()), this, SLOT(StopExecution()));
 }
 
 SimonFace::~SimonFace()
 {
-    delete ui;
+  delete ui;
 }
 void SimonFace::SimonFaceDetection(){
-    CvHaarClassifierCascade *cascade;
-    CvMemStorage            *storage;
-    CvCapture *capture;
-    int   i,duration=0;
-    char  key;
-    char      *filename = "/home/mmh/kde/src/SimonFace/simonface/data/haarcascade_frontalface_alt.xml";
-    cascade = ( CvHaarClassifierCascade* )cvLoad( filename, 0, 0, 0 );
-    storage = cvCreateMemStorage( 0 );
-    capture = cvCaptureFromFile("/home/mmh/kde/src/SimonFace/simonface/data/test.mpg");
-    assert( cascade && storage && capture );
-
-    while( duration < 20 ) {
-      IplImage* frame = cvQueryFrame(capture);
-      if( !frame ) break;
-      CvSeq *faces = cvHaarDetectObjects(frame,cascade,storage,1.1,3,0,cvSize( 40, 40 ) );
-      for( i = 0 ; i < ( faces ? faces->total : 0 ) ; i++ ) {
-        CvRect *r = ( CvRect* )cvGetSeqElem( faces, i );
-        cvRectangle( frame,cvPoint( r->x, r->y ),cvPoint( r->x + r->width, r->y + r->height ),CV_RGB( 0, 255, 0 ), 1, 8, 0 );
-      }
-    cvCvtColor(frame,frame,CV_BGR2RGB);
+    filename= "/usr/share/kde4/apps/libkface/haarcascades/haarcascade_frontalface_alt.xml";
     
-    QImage image = QImage((unsigned char *)frame->imageDataOrigin,frame->width,frame->height,QImage::Format_RGB888);
-    QGraphicsScene* scene = new QGraphicsScene(this);
-    QPixmap tempimage=QPixmap::fromImage(image);
-    ui->graphicsView_2->resize(211, 161); 
-    QPixmap *backgroundPixmap = &tempimage;
-    QPixmap sized = backgroundPixmap->scaled(QSize(ui->graphicsView_2->width(),ui->graphicsView_2->height()),Qt::KeepAspectRatioByExpanding);
-    QImage sizedImage = QImage(sized.toImage());
-    QGraphicsPixmapItem *sizedBackground = scene->addPixmap(QPixmap::fromImage(sizedImage));
-    ui->graphicsView_2->setScene(scene);
-    key = cvWaitKey(10);
-    duration++;
+    cascade = ( CvHaarClassifierCascade* )cvLoad( filename, 0, 0, 0 );
+    
+    storage = cvCreateMemStorage( 0 );
+    
+    cameracapture = cvCaptureFromCAM(0);
+    
+    assert( cascade && storage && cameracapture );
+    
+    key = true;  
+    
+    while( key == true ) {
+       
+      IplImage* frame = cvQueryFrame(cameracapture);
+      
+      if( !frame ) break;
+      
+      cvCvtColor(frame,frame,CV_BGR2RGB);
+      
+      QImage image = QImage((uchar *)frame->imageData, frame->width, frame->height, QImage::Format_RGB888);
+      
+      QGraphicsScene* scene = new QGraphicsScene(this);
+      
+      QPixmap tempimage=QPixmap::fromImage(image);
+      
+      QPixmap *backgroundPixmap = &tempimage;
+      
+      QPixmap sized = backgroundPixmap->scaled(QSize(ui->graphicsView_2->width(),ui->graphicsView_2->height()),Qt::KeepAspectRatioByExpanding);
+      
+      QImage sizedImage = QImage(sized.toImage());
+      
+      QGraphicsPixmapItem *sizedBackground = scene->addPixmap(QPixmap::fromImage(sizedImage));
+      
+      ui->graphicsView_2->setScene(scene);
+      
+      cvWaitKey(1);
     }
-    cvReleaseCapture( &capture );
+        
+    cvReleaseCapture( &cameracapture );
+    
     cvReleaseHaarClassifierCascade( &cascade );
-    cvReleaseMemStorage( &storage );
+    
+    cvReleaseMemStorage( &storage );  
+    
  return;
+}
+void SimonFace::updateBrightness()
+{
+    brightnessvalue = (ui->BrightnessAdjust->value())/100.00;
+    
+    cvSetCaptureProperty(cameracapture, CV_CAP_PROP_BRIGHTNESS,brightnessvalue);
+}
+void SimonFace::StopExecution(){
+  key = false; 
 }

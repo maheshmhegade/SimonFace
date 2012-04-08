@@ -6,20 +6,43 @@
 #include </usr/include/opencv/highgui.h>
 
 namespace Ui {
-    class SimonFace;
+  
+  class SimonFace;
+  
 }
-
 class SimonFace : public QMainWindow
+
 {
     Q_OBJECT
 
 public:
-    explicit SimonFace(QWidget *parent = 0);
+    
+    CvHaarClassifierCascade *cascade;
+    
+    CvMemStorage            *storage;
+    
+    CvCapture               *cameracapture; 
+    
+    char                    key;
+    
+    char                    *filename; 
+    
+    double                  brightnessvalue;
+     
+    explicit                SimonFace(QWidget *parent = 0);
+    
     ~SimonFace();
+
 public slots:
+
+  void updateBrightness();
+  
   void SimonFaceDetection();
+  
+  void StopExecution();
 private:
-    Ui::SimonFace *ui;
+
+  Ui::SimonFace *ui;
 };
 
 #endif // SIMONFACE_H
