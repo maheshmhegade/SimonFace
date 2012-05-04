@@ -1,0 +1,679 @@
+From 75fd75dba1826b500f23006f93b02685fb3ba0c4 Mon Sep 17 00:00:00 2001
+From: Mahesh <maheshmhegade@gmail.com>
+Date: Wed, 11 Apr 2012 20:12:49 +0530
+Subject: [PATCH] faceplugin test
+
+---
+ plugins/Conditions/CMakeLists.txt                  |    1 +
+ plugins/Conditions/SimonFace/CMakeLists.txt        |   26 ++
+ plugins/Conditions/SimonFace/Messages.sh           |   10 +
+ .../SimonFace/createfacedetectionwidget.cpp        |   72 ++++
+ .../SimonFace/createfacedetectionwidget.h          |   36 ++
+ .../SimonFace/createfacedetectionwidget.ui         |  349 ++++++++++++++++++++
+ plugins/Conditions/SimonFace/facedetection.cpp     |   44 +++
+ plugins/Conditions/SimonFace/facedetection.h       |   26 ++
+ .../SimonFace/simonfacedetectionplugin.desktop     |   27 ++
+ 9 files changed, 591 insertions(+), 0 deletions(-)
+ create mode 100644 plugins/Conditions/SimonFace/CMakeLists.txt
+ create mode 100644 plugins/Conditions/SimonFace/Messages.sh
+ create mode 100644 plugins/Conditions/SimonFace/createfacedetectionwidget.cpp
+ create mode 100644 plugins/Conditions/SimonFace/createfacedetectionwidget.h
+ create mode 100644 plugins/Conditions/SimonFace/createfacedetectionwidget.ui
+ create mode 100644 plugins/Conditions/SimonFace/facedetection.cpp
+ create mode 100644 plugins/Conditions/SimonFace/facedetection.h
+ create mode 100644 plugins/Conditions/SimonFace/simonfacedetectionplugin.desktop
+
+diff --git a/plugins/Conditions/CMakeLists.txt b/plugins/Conditions/CMakeLists.txt
+index 8911aa6..4f2878a 100644
+--- a/plugins/Conditions/CMakeLists.txt
++++ b/plugins/Conditions/CMakeLists.txt
+@@ -2,4 +2,5 @@ add_subdirectory(ProcessOpened)
+ add_subdirectory(OrConditionAssociation)
+ add_subdirectory(ActiveWindow)
+ add_subdirectory(FileContent)
++add_subdirectory(SimonFace)
+ add_subdirectory(DBus)
+\ No newline at end of file
+diff --git a/plugins/Conditions/SimonFace/CMakeLists.txt b/plugins/Conditions/SimonFace/CMakeLists.txt
+new file mode 100644
+index 0000000..c1b2fea
+--- /dev/null
++++ b/plugins/Conditions/SimonFace/CMakeLists.txt
+@@ -0,0 +1,26 @@
++
++include(KDE4Defaults)
++include(KDE4Macros)
++add_definitions (${QT_DEFINITIONS} ${KDE4_DEFINITIONS})
++set(opencv_LIBS libcxcore.so libcv.so libhighgui.so libcvaux.so)
++include_directories(${KDE4_INCLUDE_DIRS} ${KDE4_INCLUDE_DIR}
++${KDE4_INCLUDE_DIR}/KDE ${QT_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/../../../simonlib /usr/include/opencv /usr/share/kde4/apps/libkface/haarcascades/)
++
++set (simonfacedetectionplugin_SRCS 
++	facedetection.cpp 
++        createfacedetectionwidget.cpp
++    )
++
++kde4_add_ui_files(simonfacedetectionplugin_SRCS
++        createfacedetectionwidget.ui
++    )
++
++kde4_add_plugin(simonfacedetectionplugin ${simonfacedetectionplugin_SRCS})
++
++
++target_link_libraries(simonfacedetectionplugin ${KDE4_KDEUI_LIBS} ${KDE4_KIO_LIBS} ${opencv_LIBS}
++  ${QT_QTXML_LIBRARY} simoncontextdetection)
++
++install(TARGETS simonfacedetectionplugin DESTINATION ${PLUGIN_INSTALL_DIR} COMPONENT simonfacedetectionplugin )
++install( FILES simonfacedetectionplugin.desktop  DESTINATION  ${SERVICES_INSTALL_DIR} COMPONENT simonfacedetectionplugin )
++ 
+diff --git a/plugins/Conditions/SimonFace/Messages.sh b/plugins/Conditions/SimonFace/Messages.sh
+new file mode 100644
+index 0000000..d0574b6
+--- /dev/null
++++ b/plugins/Conditions/SimonFace/Messages.sh
+@@ -0,0 +1,10 @@
++ #! /usr/bin/env bash
++ 
++# invoke the extractrc script on all .ui, .rc, and .kcfg files in the sources
++# the results are stored in a pseudo .cpp file to be picked up by xgettext.
++$EXTRACTRC `find . -name \*.rc -o -name \*.ui -o -name \*.kcfg` >> rc.cpp
++# if your application contains tips-of-the-day, call preparetips as well.
++# $PREPARETIPS > tips.cpp
++# call xgettext on all source files. If your sources have other filename
++# extensions besides .cc, .cpp, and .h, just add them in the find call.
++$XGETTEXT `find . -name \*.cc -o -name \*.cpp -o -name \*.h` -o $podir/simonfacedetection.pot
+diff --git a/plugins/Conditions/SimonFace/createfacedetectionwidget.cpp b/plugins/Conditions/SimonFace/createfacedetectionwidget.cpp
+new file mode 100644
+index 0000000..425c8fc
+--- /dev/null
++++ b/plugins/Conditions/SimonFace/createfacedetectionwidget.cpp
+@@ -0,0 +1,72 @@
++#include <QLineEdit>
++#include <QFileDialog>
++#include <QStringList>
++#include <iostream>
++#include "simoncontextdetection/contextmanager.h"
++#include "createfacedetectionwidget.h"
++#include "facedetection.h"
++
++CreateFaceDetectionWidget::CreateFaceDetectionWidget(CompoundCondition *compoundCondition,
++QWidget *parent) : CreateConditionWidget(compoundCondition, parent)
++{
++  ui.setupUi(this);
++  
++  setWindowTitle(i18n("Face Detection"));
++  setWindowIcon(KIcon("list-add"));
++  connect(ui.pbCameraCalibration, SIGNAL(clicked()), this, SLOT(InitialiseCamera()));
++  connect(ui.AdjustBrightness, SIGNAL(valueChanged(int)),this, SLOT(AdjustBrightness()));
++}
++bool CreateFaceDetectionWidget::isComplete()
++{
++  return true;
++}
++bool CreateFaceDetectionWidget::init(Condition *condition)
++{
++  Q_ASSERT(condition);
++
++  FaceDetection *faceDetection = dynamic_cast<FaceDetection*>(condition);
++  if (!faceDetection) return false;
++  return true;
++}
++Condition* CreateFaceDetectionWidget::createCondition()
++{
++    QDomDocument doc;
++    QDomElement conditionElem = doc.createElement("condition");
++    conditionElem.setAttribute("name", "simonfacedetectionplugin.desktop");
++    
++    QDomElement invertElem = doc.createElement("inverted");
++    invertElem.appendChild(doc.createTextNode(ui.cbInverted->isChecked() ? "1" : "0"));
++    conditionElem.appendChild(invertElem);
++    
++    ContextManager* manager = ContextManager::instance();
++    return manager->getCondition(conditionElem);
++}
++CreateFaceDetectionWidget::~CreateFaceDetectionWidget()
++{
++}
++void CreateFaceDetectionWidget::InitialiseCamera(){
++    duration = 0;
++    IplImage *frame;
++    capture = cvCaptureFromCAM(0);
++    while( duration < 200 ) {
++      frame = cvQueryFrame(capture);
++      if( !frame ) break;
++    cvCvtColor(frame,frame,CV_BGR2RGB);
++    QImage image = QImage((uchar *)frame->imageData, frame->width, frame->height, QImage::Format_RGB888);
++    QGraphicsScene* scene = new QGraphicsScene(this);
++    QPixmap tempimage=QPixmap::fromImage(image);
++    ui.graphicsView_2->resize(211, 161); 
++    QPixmap *backgroundPixmap = &tempimage;
++    QPixmap sized = backgroundPixmap->scaled(QSize(ui.graphicsView_2->width(),ui.graphicsView_2->height()),Qt::KeepAspectRatioByExpanding);
++    QImage sizedImage = QImage(sized.toImage());
++    scene->addPixmap(QPixmap::fromImage(sizedImage));
++    ui.graphicsView_2->setScene(scene);
++    cvWaitKey(1);
++    duration++;
++    }
++    cvReleaseCapture( &capture );
++}
++void CreateFaceDetectionWidget::AdjustBrightness(){
++    brightnessvalue = (ui.AdjustBrightness->value())/100.00;
++    cvSetCaptureProperty(capture, CV_CAP_PROP_BRIGHTNESS,brightnessvalue);
++}
+\ No newline at end of file
+diff --git a/plugins/Conditions/SimonFace/createfacedetectionwidget.h b/plugins/Conditions/SimonFace/createfacedetectionwidget.h
+new file mode 100644
+index 0000000..a54be0a
+--- /dev/null
++++ b/plugins/Conditions/SimonFace/createfacedetectionwidget.h
+@@ -0,0 +1,36 @@
++#ifndef SIMON_CREATEFACEDETECTIONWIDGET_H_9F05429CB8EF43B8BFAC15877F9854C3
++#define SIMON_CREATEFACEDETECTIONWIDGET_H_9F05429CB8EF43B8BFAC15877F9854C3
++
++
++#include <QWidget>
++#include <simoncontextdetection/createconditionwidget.h>
++#include "ui_createfacedetectionwidget.h"
++#include </usr/include/opencv/cv.h>
++#include </usr/include/opencv/highgui.h>
++
++class Condition;
++class CompoundCondition;
++
++class CreateFaceDetectionWidget : public CreateConditionWidget
++{
++  Q_OBJECT
++
++    private:
++    Ui::CreateFaceDetectionWidget ui;
++
++  public:
++    Condition* createCondition();
++    int duration;
++    float brightnessvalue;
++    bool init(Condition* condition);
++    bool isInstanceOfSameCondition(Condition *condition);
++    bool isComplete();
++    CvCapture *capture;
++    explicit CreateFaceDetectionWidget(CompoundCondition *compoundCondition, QWidget *parent=0);
++
++    virtual ~CreateFaceDetectionWidget();
++  public slots:
++    void InitialiseCamera();
++    void AdjustBrightness();
++};
++#endif 
+diff --git a/plugins/Conditions/SimonFace/createfacedetectionwidget.ui b/plugins/Conditions/SimonFace/createfacedetectionwidget.ui
+new file mode 100644
+index 0000000..c32e926
+--- /dev/null
++++ b/plugins/Conditions/SimonFace/createfacedetectionwidget.ui
+@@ -0,0 +1,349 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<ui version="4.0">
++ <class>CreateFaceDetectionWidget</class>
++ <widget class="QWidget" name="CreateFaceDetectionWidget">
++  <property name="geometry">
++   <rect>
++    <x>0</x>
++    <y>0</y>
++    <width>597</width>
++    <height>455</height>
++   </rect>
++  </property>
++  <property name="windowTitle">
++   <string>SimonFace</string>
++  </property>
++  <widget class="QWidget" name="centralWidget" native="true">
++   <property name="geometry">
++    <rect>
++     <x>0</x>
++     <y>0</y>
++     <width>621</width>
++     <height>421</height>
++    </rect>
++   </property>
++   <widget class="QLabel" name="label">
++    <property name="geometry">
++     <rect>
++      <x>10</x>
++      <y>0</y>
++      <width>51</width>
++      <height>21</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Camera</string>
++    </property>
++   </widget>
++   <widget class="QListView" name="listView">
++    <property name="geometry">
++     <rect>
++      <x>10</x>
++      <y>220</y>
++      <width>256</width>
++      <height>201</height>
++     </rect>
++    </property>
++   </widget>
++   <widget class="QLabel" name="label_2">
++    <property name="geometry">
++     <rect>
++      <x>20</x>
++      <y>200</y>
++      <width>151</width>
++      <height>16</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Known People</string>
++    </property>
++   </widget>
++   <widget class="QLabel" name="label_3">
++    <property name="geometry">
++     <rect>
++      <x>10</x>
++      <y>50</y>
++      <width>181</width>
++      <height>31</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Please Tag People Detected</string>
++    </property>
++   </widget>
++   <widget class="QGraphicsView" name="graphicsView">
++    <property name="geometry">
++     <rect>
++      <x>10</x>
++      <y>80</y>
++      <width>251</width>
++      <height>121</height>
++     </rect>
++    </property>
++   </widget>
++   <widget class="QGraphicsView" name="graphicsView_2">
++    <property name="geometry">
++     <rect>
++      <x>320</x>
++      <y>30</y>
++      <width>211</width>
++      <height>161</height>
++     </rect>
++    </property>
++   </widget>
++   <widget class="QSlider" name="AdjustBrightness">
++    <property name="geometry">
++     <rect>
++      <x>540</x>
++      <y>30</y>
++      <width>23</width>
++      <height>160</height>
++     </rect>
++    </property>
++    <property name="maximum">
++     <number>100</number>
++    </property>
++    <property name="singleStep">
++     <number>1</number>
++    </property>
++    <property name="value">
++     <number>60</number>
++    </property>
++    <property name="sliderPosition">
++     <number>60</number>
++    </property>
++    <property name="orientation">
++     <enum>Qt::Vertical</enum>
++    </property>
++   </widget>
++   <widget class="QLabel" name="label_4">
++    <property name="geometry">
++     <rect>
++      <x>490</x>
++      <y>10</y>
++      <width>121</width>
++      <height>20</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Adjust Brightness</string>
++    </property>
++   </widget>
++   <widget class="QLabel" name="label_5">
++    <property name="geometry">
++     <rect>
++      <x>330</x>
++      <y>200</y>
++      <width>151</width>
++      <height>16</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Recognition Accuracy</string>
++    </property>
++   </widget>
++   <widget class="QCheckBox" name="cbEnableCamera">
++    <property name="geometry">
++     <rect>
++      <x>70</x>
++      <y>20</y>
++      <width>121</width>
++      <height>21</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Enable Camera</string>
++    </property>
++   </widget>
++   <widget class="QSlider" name="RecognitionConfidence">
++    <property name="geometry">
++     <rect>
++      <x>320</x>
++      <y>210</y>
++      <width>271</width>
++      <height>23</height>
++     </rect>
++    </property>
++    <property name="maximum">
++     <number>100</number>
++    </property>
++    <property name="singleStep">
++     <number>1</number>
++    </property>
++    <property name="value">
++     <number>60</number>
++    </property>
++    <property name="orientation">
++     <enum>Qt::Horizontal</enum>
++    </property>
++   </widget>
++   <widget class="QListView" name="listView_2">
++    <property name="geometry">
++     <rect>
++      <x>315</x>
++      <y>260</y>
++      <width>271</width>
++      <height>121</height>
++     </rect>
++    </property>
++   </widget>
++   <widget class="QLabel" name="label_6">
++    <property name="geometry">
++     <rect>
++      <x>320</x>
++      <y>240</y>
++      <width>191</width>
++      <height>16</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Scenerios to be included</string>
++    </property>
++   </widget>
++   <widget class="QCheckBox" name="checkBox_2">
++    <property name="geometry">
++     <rect>
++      <x>320</x>
++      <y>390</y>
++      <width>51</width>
++      <height>21</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>All</string>
++    </property>
++   </widget>
++   <widget class="QPushButton" name="pbOkButton">
++    <property name="geometry">
++     <rect>
++      <x>370</x>
++      <y>390</y>
++      <width>41</width>
++      <height>24</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Ok</string>
++    </property>
++   </widget>
++   <widget class="QPushButton" name="pbApplyButton">
++    <property name="geometry">
++     <rect>
++      <x>430</x>
++      <y>390</y>
++      <width>61</width>
++      <height>24</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Apply</string>
++    </property>
++   </widget>
++   <widget class="QPushButton" name="pbCancelButton">
++    <property name="geometry">
++     <rect>
++      <x>500</x>
++      <y>390</y>
++      <width>71</width>
++      <height>24</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Cancel</string>
++    </property>
++   </widget>
++   <widget class="QPushButton" name="pbClearButton">
++    <property name="geometry">
++     <rect>
++      <x>210</x>
++      <y>50</y>
++      <width>94</width>
++      <height>31</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Clear all</string>
++    </property>
++   </widget>
++   <widget class="QComboBox" name="pbSelectCamera">
++    <property name="geometry">
++     <rect>
++      <x>70</x>
++      <y>0</y>
++      <width>171</width>
++      <height>24</height>
++     </rect>
++    </property>
++    <item>
++     <property name="text">
++      <string>Default</string>
++     </property>
++    </item>
++    <item>
++     <property name="text">
++      <string>Web Camera</string>
++     </property>
++    </item>
++   </widget>
++   <widget class="QPushButton" name="pbCameraCalibration">
++    <property name="geometry">
++     <rect>
++      <x>370</x>
++      <y>10</y>
++      <width>94</width>
++      <height>24</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>Camera Check</string>
++    </property>
++   </widget>
++   <widget class="QCheckBox" name="cbInverted">
++    <property name="geometry">
++     <rect>
++      <x>70</x>
++      <y>40</y>
++      <width>121</width>
++      <height>21</height>
++     </rect>
++    </property>
++    <property name="text">
++     <string>invert Condition</string>
++    </property>
++   </widget>
++  </widget>
++  <widget class="QMenuBar" name="menuBar">
++   <property name="geometry">
++    <rect>
++     <x>0</x>
++     <y>0</y>
++     <width>597</width>
++     <height>21</height>
++    </rect>
++   </property>
++  </widget>
++  <widget class="QToolBar" name="mainToolBar">
++   <property name="geometry">
++    <rect>
++     <x>0</x>
++     <y>0</y>
++     <width>0</width>
++     <height>6</height>
++    </rect>
++   </property>
++  </widget>
++  <widget class="QStatusBar" name="statusBar">
++   <property name="geometry">
++    <rect>
++     <x>0</x>
++     <y>0</y>
++     <width>3</width>
++     <height>20</height>
++    </rect>
++   </property>
++  </widget>
++ </widget>
++ <layoutdefault spacing="6" margin="11"/>
++ <resources/>
++ <connections/>
++</ui>
+diff --git a/plugins/Conditions/SimonFace/facedetection.cpp b/plugins/Conditions/SimonFace/facedetection.cpp
+new file mode 100644
+index 0000000..8c26142
+--- /dev/null
++++ b/plugins/Conditions/SimonFace/facedetection.cpp
+@@ -0,0 +1,44 @@
++ #include "facedetection.h"
++#include <KDE/KDebug>
++#include "createfacedetectionwidget.h"
++#include <QWidget>
++#include <QFileSystemWatcher>
++#include <QTimer>
++ 
++K_PLUGIN_FACTORY( FaceDetectionPluginFactory,
++registerPlugin< FaceDetection >();
++)
++
++K_EXPORT_PLUGIN( FaceDetectionPluginFactory("simonfacedetection") )
++
++FaceDetection::FaceDetection(QObject *parent, const QVariantList &args) :
++    Condition(parent, args)
++{
++    m_pluginName = "simonfacedetectionplugin.desktop";
++}
++
++CreateConditionWidget* FaceDetection::getCreateConditionWidget(CompoundCondition *compoundCondition, QWidget* parent)
++{
++    return new CreateFaceDetectionWidget(compoundCondition, parent);
++}
++QString FaceDetection::name()
++{
++    if (!isInverted())
++      return i18nc("The given process needs to be running to satisfy the condition", "'%1' is opened", m_facename);
++    else
++      return i18nc("The given process must not be running to satisfy the condition", "'%1' is not opened", m_facename);
++}
++
++QDomElement FaceDetection::privateSerialize(QDomDocument *doc, QDomElement elem)
++{
++    QDomElement facenameElem = doc->createElement("facename");
++    facenameElem.appendChild(doc->createTextNode(m_facename));
++
++    elem.appendChild(facenameElem);
++    return elem;
++}
++
++bool FaceDetection::privateDeSerialize(QDomElement elem)
++{
++  return true;
++}
+diff --git a/plugins/Conditions/SimonFace/facedetection.h b/plugins/Conditions/SimonFace/facedetection.h
+new file mode 100644
+index 0000000..8822e83
+--- /dev/null
++++ b/plugins/Conditions/SimonFace/facedetection.h
+@@ -0,0 +1,26 @@
++#ifndef FACEDETECTION_H
++#define FACEDETECTION_H
++
++#include "simoncontextdetection/condition.h"
++#include "simoncontextdetection/simoncontextdetection_export.h"
++#include "simoncontextdetection/compoundcondition.h"
++
++
++class FaceDetection : public Condition
++{
++    Q_OBJECT
++public:
++    explicit FaceDetection(QObject *parent, const QVariantList& args);
++    virtual CreateConditionWidget* getCreateConditionWidget(CompoundCondition *compoundCondition, QWidget *parent);
++    virtual QString name();
++private:
++    QString m_facename;
++    bool privateDeSerialize(QDomElement elem);
++    QDomElement privateSerialize(QDomDocument *doc, QDomElement elem);
++
++signals:
++
++public slots:
++};
++
++#endif //
+\ No newline at end of file
+diff --git a/plugins/Conditions/SimonFace/simonfacedetectionplugin.desktop b/plugins/Conditions/SimonFace/simonfacedetectionplugin.desktop
+new file mode 100644
+index 0000000..48af3cc
+--- /dev/null
++++ b/plugins/Conditions/SimonFace/simonfacedetectionplugin.desktop
+@@ -0,0 +1,27 @@
++[Desktop Entry]
++Type=Service
++Icon=text-field
++ServiceTypes=simon/ConditionPlugin
++X-KDE-Library=simonfacedetectionplugin
++Name=simon Face Detection Plugin
++Name[de]=Dateiinhaltemodul für Simon
++Name[pt]='Plugin' de Conteúdo do Ficheiro do Simon
++Name[pt_BR]=Plugin de conteúdo do arquivo do simon
++Name[sv]=Simon insticksprogram för filinnehåll
++Name[uk]=Додаток вмісту файлів simon
++Name[x-test]=xxsimon Face Detection Pluginxx
++Comment=Checks for the content of a file
++Comment[pt]=Procura pelo conteúdo de um ficheiro
++Comment[pt_BR]=Procura pelo conteúdo de um arquivo
++Comment[sv]=Kontrollerar innehållet i en fil
++Comment[uk]=Перевірка вмісту файлів
++Comment[x-test]=xxChecks for the content of a filexx
++
++X-KDE-PluginInfo-Author=Mahesh Hegde
++X-KDE-PluginInfo-Email=maheshmhegade@gmail.com
++X-KDE-PluginInfo-Name=simonfacedetectionplugin
++X-KDE-PluginInfo-Version=0.1
++X-KDE-PluginInfo-Website=http://simon-listens.org
++X-KDE-PluginInfo-License=GPL
++X-KDE-PluginInfo-EnabledByDefault=true
++X-KDE-ParentApp=simon
+-- 
+1.7.5.4
+
